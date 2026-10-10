@@ -30,8 +30,6 @@ fun SplashScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToHome: () -> Unit = onNavigateToLogin
 ) {
-    var selectedChannel by remember { mutableStateOf("App") }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -110,38 +108,7 @@ fun SplashScreen(
                 color = Color(0xFF475569)
             )
 
-            Spacer(modifier = Modifier.height(36.dp))
-
-            // Channel Badges (App, WhatsApp, Voice Device)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ChannelPill(
-                    icon = Icons.Default.PhoneAndroid,
-                    title = "App",
-                    isSelected = selectedChannel == "App",
-                    onClick = { selectedChannel = "App" },
-                    accentColor = Color(0xFF5B32E9)
-                )
-                Spacer(modifier = Modifier.width(14.dp))
-                ChannelPill(
-                    icon = Icons.Default.QuestionAnswer,
-                    title = "WhatsApp",
-                    isSelected = selectedChannel == "WhatsApp",
-                    onClick = { selectedChannel = "WhatsApp" },
-                    accentColor = Color(0xFF25D366)
-                )
-                Spacer(modifier = Modifier.width(14.dp))
-                ChannelPill(
-                    icon = Icons.Default.Mic,
-                    title = "Voice Device",
-                    isSelected = selectedChannel == "Voice Device",
-                    onClick = { selectedChannel = "Voice Device" },
-                    accentColor = Color(0xFF5B32E9)
-                )
-            }
+    Spacer(modifier = Modifier.height(36.dp))
 
             Spacer(modifier = Modifier.weight(1f))
 
@@ -184,50 +151,3 @@ fun SplashScreen(
     }
 }
 
-@Composable
-fun ChannelPill(
-    icon: ImageVector,
-    title: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    accentColor: Color
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .background(
-                if (isSelected) accentColor.copy(alpha = 0.12f)
-                else Color(0xFFF8FAFC)
-            )
-            .border(
-                width = 1.dp,
-                color = if (isSelected) accentColor else Color(0xFFE2E8F0),
-                shape = RoundedCornerShape(14.dp)
-            )
-            .padding(horizontal = 14.dp, vertical = 12.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(accentColor.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                tint = accentColor,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = title,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B)
-        )
-    }
-}
