@@ -52,26 +52,7 @@ fun AIAdvisorScreen(
                 id = "1",
                 sender = "bot",
                 text = "Hi Arjun! 👋\nHow can I help you with your business today?",
-                timestamp = "09:40"
-            ),
-            ChatMessage(
-                id = "2",
-                sender = "user",
-                text = "Which products give the best profit margin?",
-                timestamp = "09:42"
-            ),
-            ChatMessage(
-                id = "3",
-                sender = "bot",
-                text = "Here are the top 3 products by profit margin based on your recent sales and cost data:",
-                timestamp = "09:42",
-                structuredData = listOf(
-                    "1. Wireless Earphones" to "42%",
-                    "2. Smart Watch" to "38%",
-                    "3. Power Bank" to "32%"
-                ),
-                actionText = "View Detailed Report",
-                actionRoute = "insights"
+                timestamp = "Just now"
             )
         )
     }
