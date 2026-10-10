@@ -81,11 +81,11 @@ fun AIAdvisorScreen(
 
         coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                // Step 1: Fetch context from DronaHQ
+                // Fetch direct answer from DronaHQ Agent Webhook
                 val url = java.net.URL(webhookUrl)
                 val connection = url.openConnection() as java.net.HttpURLConnection
                 connection.requestMethod = "POST"
-                connection.setRequestProperty("Authorization", "Bearer $apiKey")
+                connection.setRequestProperty("api-key", apiKey)
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.doOutput = true
 
@@ -98,50 +98,23 @@ fun AIAdvisorScreen(
                     os.write(input, 0, input.size)
                 }
 
-                var dronaContext = ""
                 if (connection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                    dronaContext = connection.inputStream.bufferedReader().use { it.readText() }
-                }
-
-                // Step 2: Query NVIDIA LLM with the context
-                val nvidiaUrl = java.net.URL("https://integrate.api.nvidia.com/v1/chat/completions")
-                val nvConnection = nvidiaUrl.openConnection() as java.net.HttpURLConnection
-                nvConnection.requestMethod = "POST"
-                nvConnection.setRequestProperty("Authorization", "Bearer $nvidiaApiKey")
-                nvConnection.setRequestProperty("Content-Type", "application/json")
-                nvConnection.doOutput = true
-
-                val messagesArray = org.json.JSONArray().apply {
-                    put(org.json.JSONObject().apply {
-                        put("role", "system")
-                        put("content", "You are Vyapaar AI, a helpful business assistant. Answer the user's question based strictly on the provided Context from the database. Make it conversational, concise, and easy to read. Context: $dronaContext")
-                    })
-                    put(org.json.JSONObject().apply {
-                        put("role", "user")
-                        put("content", query)
-                    })
-                }
-
-                val nvPayload = org.json.JSONObject().apply {
-                    put("model", nvidiaModel)
-                    put("messages", messagesArray)
-                    put("max_tokens", 512)
-                    put("temperature", 0.7)
-                }.toString()
-
-                nvConnection.outputStream.use { os ->
-                    val input = nvPayload.toByteArray(Charsets.UTF_8)
-                    os.write(input, 0, input.size)
-                }
-
-                if (nvConnection.responseCode == java.net.HttpURLConnection.HTTP_OK) {
-                    val nvResponseStr = nvConnection.inputStream.bufferedReader().use { it.readText() }
-                    val nvJson = org.json.JSONObject(nvResponseStr)
-                    val choices = nvJson.optJSONArray("choices")
-                    val finalMessage = if (choices != null && choices.length() > 0) {
-                        choices.getJSONObject(0).optJSONObject("message")?.optString("content") ?: "I couldn't process that properly."
-                    } else {
-                        "No response generated."
+                    val dronaResponseStr = connection.inputStream.bufferedReader().use { it.readText() }
+                    
+                    // Attempt to parse a potential JSON response from DronaHQ, 
+                    // or use raw text if it's not JSON
+                    var finalMessage = dronaResponseStr
+                    try {
+                        val dronaJson = org.json.JSONObject(dronaResponseStr)
+                        if (dronaJson.has("response")) {
+                            finalMessage = dronaJson.getString("response")
+                        } else if (dronaJson.has("message")) {
+                            finalMessage = dronaJson.getString("message")
+                        } else if (dronaJson.has("answer")) {
+                            finalMessage = dronaJson.getString("answer")
+                        }
+                    } catch (e: Exception) {
+                        // Response was not JSON, keep raw string
                     }
 
                     kotlinx.coroutines.Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
@@ -159,14 +132,14 @@ fun AIAdvisorScreen(
                         }
                     })
                 } else {
-                    val errorResp = try { nvConnection.errorStream?.bufferedReader()?.use { it.readText() } } catch (e: Exception) { "" }
+                    val errorResp = try { connection.errorStream?.bufferedReader()?.use { it.readText() } } catch (e: Exception) { "" }
                     kotlinx.coroutines.Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
                         messages.remove(loadingMsg)
                         messages.add(
                             ChatMessage(
                                 id = System.currentTimeMillis().toString(),
                                 sender = "bot",
-                                text = "NVIDIA AI error (${nvConnection.responseCode}): $errorResp",
+                                text = "DronaHQ Error (${connection.responseCode}): $errorResp",
                                 timestamp = "Just now"
                             )
                         )
