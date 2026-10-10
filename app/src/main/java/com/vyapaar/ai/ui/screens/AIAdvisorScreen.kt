@@ -85,6 +85,9 @@ fun AIAdvisorScreen(
 
     val primaryPurple = Color(0xFF5B32E9)
 
+    val webhookUrl = "https://agents-backend.dronahq.com/webhook/b0fc1da7-7fd9-4f22-a810-cd8893dddae1"
+    val apiKey = "sk_Adr7hCyX3B0IU6mI19lnV8PMLaw6Y644"
+
     fun handleSend(query: String) {
         if (query.isBlank()) return
         val userMsg = ChatMessage(
@@ -95,78 +98,98 @@ fun AIAdvisorScreen(
         )
         messages.add(userMsg)
 
-        // Generate intelligent contextual response
-        val botResponse = when {
-            query.contains("profit", ignoreCase = true) || query.contains("best", ignoreCase = true) -> {
-                ChatMessage(
-                    id = (System.currentTimeMillis() + 1).toString(),
-                    sender = "bot",
-                    text = "Here are the top 3 products by profit margin based on your recent sales and cost data:",
-                    timestamp = "Just now",
-                    structuredData = listOf(
-                        "1. Wireless Earphones" to "42%",
-                        "2. Smart Watch" to "38%",
-                        "3. Power Bank" to "32%"
-                    ),
-                    actionText = "View Detailed Report",
-                    actionRoute = "insights"
-                )
-            }
-            query.contains("payment", ignoreCase = true) || query.contains("pending", ignoreCase = true) || query.contains("receivable", ignoreCase = true) -> {
-                ChatMessage(
-                    id = (System.currentTimeMillis() + 1).toString(),
-                    sender = "bot",
-                    text = "You have ₹4.33 Cr in pending receivables. Top overdue accounts:",
-                    timestamp = "Just now",
-                    structuredData = listOf(
-                        "Tejas Som (30 days)" to "₹2,06,590",
-                        "Nachiket (29 days)" to "₹1,38,196",
-                        "Anvita (28 days)" to "₹2,16,726"
-                    ),
-                    actionText = "Open Collections Desk",
-                    actionRoute = "collections"
-                )
-            }
-            query.contains("supplier", ignoreCase = true) -> {
-                ChatMessage(
-                    id = (System.currentTimeMillis() + 1).toString(),
-                    sender = "bot",
-                    text = "Devi and Sons offers the lowest quote at ₹850/unit for bulk audio inventory with a 4.8★ reliability rating.",
-                    timestamp = "Just now",
-                    structuredData = listOf(
-                        "Devi and Sons (Best Value)" to "₹850 / unit",
-                        "Raghavan-Ghosh" to "₹890 / unit",
-                        "Chhabra Ltd" to "₹920 / unit"
-                    ),
-                    actionText = "Compare Suppliers",
-                    actionRoute = "suppliers"
-                )
-            }
-            query.contains("growth", ignoreCase = true) -> {
-                ChatMessage(
-                    id = (System.currentTimeMillis() + 1).toString(),
-                    sender = "bot",
-                    text = "Your business has a +22.4% projected growth potential over the next 6 months by shortening collection cycles and expanding high-margin categories.",
-                    timestamp = "Just now",
-                    actionText = "Run Growth Simulation",
-                    actionRoute = "growth_simulator"
-                )
-            }
-            else -> {
-                ChatMessage(
-                    id = (System.currentTimeMillis() + 1).toString(),
-                    sender = "bot",
-                    text = "I've analyzed your store's operations. Would you like me to evaluate inventory stock levels or pull today's sales summary?",
-                    timestamp = "Just now",
-                    actionText = "Check Inventory Stock",
-                    actionRoute = "inventory"
-                )
-            }
-        }
-
-        messages.add(botResponse)
+        // Show a typing indicator/loading state
+        val loadingMsg = ChatMessage(
+            id = "loading",
+            sender = "bot",
+            text = "Thinking...",
+            timestamp = "Just now"
+        )
+        messages.add(loadingMsg)
+        
         coroutineScope.launch {
             listState.animateScrollToItem(messages.size - 1)
+        }
+
+        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val url = java.net.URL(webhookUrl)
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.setRequestProperty("Authorization", "Bearer $apiKey")
+                connection.setRequestProperty("Content-Type", "application/json")
+                connection.doOutput = true
+
+                val jsonPayload = org.json.JSONObject().apply {
+                    put("request", query)
+                }.toString()
+
+                connection.outputStream.use { os ->
+                    val input = jsonPayload.toByteArray(Charsets.UTF_8)
+                    os.write(input, 0, input.size)
+                }
+
+                val responseCode = connection.responseCode
+                if (responseCode == java.net.HttpURLConnection.HTTP_OK) {
+                    val responseStr = connection.inputStream.bufferedReader().use { it.readText() }
+                    val jsonResponse = org.json.JSONObject(responseStr)
+                    
+                    val responseObj = jsonResponse.optJSONObject("response")
+                    val messageText = responseObj?.optString("message") ?: "I processed your request, but there was no specific message returned."
+                    val recommendationsArray = responseObj?.optJSONArray("recommendations")
+                    
+                    val structuredData = mutableListOf<Pair<String, String>>()
+                    if (recommendationsArray != null) {
+                        for (i in 0 until recommendationsArray.length()) {
+                            val rec = recommendationsArray.optString(i)
+                            if (rec.isNotBlank()) {
+                                // Split text gracefully for UI presentation if it's long, or just put it in item
+                                structuredData.add("Insight ${i + 1}" to rec)
+                            }
+                        }
+                    }
+
+                    kotlinx.coroutines.Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
+                        messages.remove(loadingMsg)
+                        messages.add(
+                            ChatMessage(
+                                id = System.currentTimeMillis().toString(),
+                                sender = "bot",
+                                text = messageText,
+                                timestamp = "Just now",
+                                structuredData = if (structuredData.isNotEmpty()) structuredData else null
+                            )
+                        )
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(messages.size - 1)
+                        }
+                    })
+                } else {
+                    kotlinx.coroutines.Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
+                        messages.remove(loadingMsg)
+                        messages.add(
+                            ChatMessage(
+                                id = System.currentTimeMillis().toString(),
+                                sender = "bot",
+                                text = "Sorry, the AI agent service is temporarily unavailable (Error $responseCode).",
+                                timestamp = "Just now"
+                            )
+                        )
+                    })
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
+                    messages.remove(loadingMsg)
+                    messages.add(
+                        ChatMessage(
+                            id = System.currentTimeMillis().toString(),
+                            sender = "bot",
+                            text = "Connection error: ${e.message}",
+                            timestamp = "Just now"
+                        )
+                    )
+                })
+            }
         }
     }
 
