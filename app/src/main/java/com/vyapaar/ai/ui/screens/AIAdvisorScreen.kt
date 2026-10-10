@@ -43,6 +43,7 @@ fun AIAdvisorScreen(
     onNavigateToReport: (String) -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val listState = rememberLazyListState()
 
     var inputText by remember { mutableStateOf("") }
@@ -107,7 +108,12 @@ fun AIAdvisorScreen(
                     try {
                         val dronaJson = org.json.JSONObject(dronaResponseStr)
                         if (dronaJson.has("response")) {
-                            finalMessage = dronaJson.getString("response")
+                            val responseObj = dronaJson.optJSONObject("response")
+                            if (responseObj != null) {
+                                finalMessage = responseObj.optString("message", responseObj.optString("answer", responseObj.toString()))
+                            } else {
+                                finalMessage = dronaJson.getString("response")
+                            }
                         } else if (dronaJson.has("message")) {
                             finalMessage = dronaJson.getString("message")
                         } else if (dronaJson.has("answer")) {
@@ -115,6 +121,16 @@ fun AIAdvisorScreen(
                         }
                     } catch (e: Exception) {
                         // Response was not JSON, keep raw string
+                    }
+                    
+                    var actionTxt: String? = null
+                    var actionRt: String? = null
+                    val supplierRegex = Regex("SUP\\d+")
+                    val match = supplierRegex.find(finalMessage)
+                    if (match != null) {
+                        val supplierId = match.value
+                        actionTxt = "Email Supplier $supplierId"
+                        actionRt = "mailto:orders@$supplierId.com?subject=Inquiry from Vyapaar AI"
                     }
 
                     kotlinx.coroutines.Dispatchers.Main.dispatch(kotlin.coroutines.EmptyCoroutineContext, Runnable {
@@ -124,7 +140,9 @@ fun AIAdvisorScreen(
                                 id = System.currentTimeMillis().toString(),
                                 sender = "bot",
                                 text = finalMessage,
-                                timestamp = "Just now"
+                                timestamp = "Just now",
+                                actionText = actionTxt,
+                                actionRoute = actionRt
                             )
                         )
                         coroutineScope.launch {
@@ -326,7 +344,14 @@ fun AIAdvisorScreen(
                                     Button(
                                         onClick = {
                                             if (message.actionRoute != null) {
-                                                onNavigateToReport(message.actionRoute)
+                                                if (message.actionRoute.startsWith("mailto:")) {
+                                                    val intent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+                                                        data = android.net.Uri.parse(message.actionRoute)
+                                                    }
+                                                    context.startActivity(intent)
+                                                } else {
+                                                    onNavigateToReport(message.actionRoute)
+                                                }
                                             }
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF3EFFF)),
