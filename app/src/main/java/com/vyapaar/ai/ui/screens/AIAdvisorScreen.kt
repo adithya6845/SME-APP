@@ -47,23 +47,8 @@ fun AIAdvisorScreen(
 
     var inputText by remember { mutableStateOf("") }
     val messages = remember {
-        mutableStateListOf(
-            ChatMessage(
-                id = "1",
-                sender = "bot",
-                text = "Hi Arjun! 👋\nHow can I help you with your business today?",
-                timestamp = "Just now"
-            )
-        )
+        mutableStateListOf<ChatMessage>()
     }
-
-    val suggestionChips = listOf(
-        "Which products give best profit?",
-        "Show pending payments",
-        "Compare suppliers",
-        "Growth suggestions"
-    )
-
     val primaryPurple = Color(0xFF5B32E9)
 
     val webhookUrl = "https://agents-backend.dronahq.com/webhook/b0fc1da7-7fd9-4f22-a810-cd8893dddae1"
@@ -396,29 +381,7 @@ fun AIAdvisorScreen(
                 }
             }
 
-            // Suggestion Chips (under first bot message)
-            if (messages.size <= 3) {
-                item {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Suggested Questions:",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF64748B)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        suggestionChips.forEach { chip ->
-                            SuggestionChipItem(
-                                title = chip,
-                                onClick = {
-                                    handleSend(chip)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
+            // Suggestion Chips (under first bot message) - Removed
         }
 
         // Chat Input Bar
