@@ -53,7 +53,7 @@ fun AIAdvisorScreen(
 
     val webhookUrl = "https://agents-backend.dronahq.com/webhook/b0fc1da7-7fd9-4f22-a810-cd8893dddae1"
     val apiKey = "sk_Adr7hCyX3B0IU6mI19lnV8PMLaw6Y644"
-    val nvidiaApiKey = "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"
+    val nvidiaApiKey = "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"
     val nvidiaModel = "nvidia/llama-3.1-nemotron-70b-instruct"
 
     fun handleSend(query: String) {
